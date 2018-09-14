@@ -19,11 +19,11 @@ var GuestGenerator = generators.Base.extend({
     
 
     var prompts = [{
-      type: 'input'
-    , name: 'projName'
-    , message: 'Name your application'
-    , default: this.config.get('projName')
-    , validate: function (input) {
+      type: 'input', 
+      name: 'projName',
+      message: 'Name your application',
+      default: this.config.get('projName'),
+      validate: function (input) {
         return input ? true : false;
       }
     }];
@@ -40,7 +40,7 @@ var GuestGenerator = generators.Base.extend({
   writing: function() {
     var isAddNewService = false;
     this.composeWith('azuresfcontainer:guestcontainer', {
-            options: { isAddNewService: isAddNewService }
+            options: { isAddNewService: isAddNewService, serviceName: this.props.projName + 'Service' }
     });
   },
   

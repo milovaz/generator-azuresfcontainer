@@ -1,0 +1,110 @@
+pipeline {
+  environment {
+    registry = "milovaz/node-js-sample"
+    registryCredential = 'dockerhub'
+    dockerImage = ''
+  }
+  agent any
+  tools {nodejs "node" }
+  stages {
+    stage('Cloning Git') {
+      steps {
+        git(
+           url: 'https://github.com/MoedaPlatform/accounts.git',
+           credentialsId: 'github',
+           branch: "master"
+        )
+      }
+    }
+    /*stage('Build') {
+       steps {
+         sh 'npm install'
+       }
+    }
+    stage('Test') {
+      steps {
+        sh 'npm test'
+      }
+    }*/
+    stage('Building image') {
+      steps{
+      script {
+            registry = sh (returnStdout: true, script: '''#!/bin/bash
+                    image_name=$(grep -oP \'<ImageName>\\K[^<]*\' <%= serviceManifestPath %> | cut -d\':\' -f1)
+                    echo $image_name''').trim()
+        }
+        script {
+          dockerImage = docker.build registry + ":$BUILD_NUMBER"
+        }
+      }
+    }
+    stage('Deploy Image') {
+      steps{
+         script {
+            docker.withRegistry('https://moeda3.azurecr.io', 'acr-credentials') {
+            dockerImage.push()
+          }
+        }
+      }
+    }
+    stage('Update service manifest version') {
+        steps {
+            script {
+                env.SERVICE_MANIFEST_PATH = sh returnStdout: true, script: 'service_manifest=$(find . -name \'ServiceManifest.xml\' | cut -sd / -f 2-) && echo $service_manifest'
+                env.SERVICE_MANIFEST_CONTENT = sh returnStdout: true, script: '''#!/bin/bash
+                        service_manifest="$SERVICE_MANIFEST_PATH"
+                        image_name=$(grep -oP \'<ImageName>\\K[^<]*\' $service_manifest | cut -d\':\' -f1)
+                        version=$(grep -oP \'<ServiceManifest .* Version="\\K[^"]*\' $service_manifest)
+                        version_updated=$(echo "$version" | sed -r "s/\\.[0-9]+$/.${BUILD_NUMBER}/g")
+                        file_content=$(sed -r \'s/Version\\s*=\\s*\\"([0-9]+|\\.)+\\"/\'Version=\\""$version_updated"\\"\'/g\' $service_manifest)
+                        file_content=$(echo "$file_content" | sed -r "s%<ImageName>.*<\\/ImageName>%<ImageName>$image_name:${BUILD_NUMBER}<\\/ImageName>%g")
+                        echo $file_content'''
+                env.SERVICE_VERSION = sh (returnStdout: true, script: '''#!/bin/bash
+                        version=$(echo \\"$SERVICE_MANIFEST_CONTENT\\" | grep -oP \'<ServiceManifest .* Version="\\K[^"]*\')
+                        echo $version''').trim()
+            }
+            sh "rm -f $SERVICE_MANIFEST_PATH"
+            sh "echo '$SERVICE_MANIFEST_CONTENT' > $SERVICE_MANIFEST_PATH"
+        }
+    }
+    stage('Update Application manifest version') {
+       steps {
+            script {
+               withCredentials([usernamePassword(credentialsId: 'acr-credentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                   env.APP_MANIFEST_PATH = sh returnStdout: true, script: 'app_manifest=$(find . -name \'ApplicationManifest.xml\' | cut -sd / -f 2-) && echo $app_manifest'
+                   env.FILE_CONTENT = sh returnStdout: true, script: '''#!/bin/bash
+                                        app_manifest="$APP_MANIFEST_PATH"
+                                        repositoryCredentials="<RepositoryCredentials AccountName=\\"$USERNAME\\" Password=\\"$PASSWORD\\" PasswordEncrypted=\\"false\\"/>"
+                                        application_version=$(grep -oP \'<ApplicationManifest .* ApplicationTypeVersion="\\K[^"]*\' $app_manifest) 
+                                        application_version_updated=$(echo $application_version | sed -r "s/\\.[0-9]+$/.${BUILD_NUMBER}/g")
+                                        file_content=$(sed -r "s/ApplicationTypeVersion\\s*=\\s*\\"([0-9]+|\\.)+\\"/ApplicationTypeVersion=\\"$application_version_updated\\"/g" $app_manifest)
+                                        file_content=$(echo $file_content | sed -r "s/ServiceManifestVersion\\s*=\\s*\\"([0-9]+|\\.)+\\"/ServiceManifestVersion=\\"$SERVICE_VERSION\\"/g")
+                                        repository=$(echo $file_content | grep -oP \'<RepositoryCredentials.*/?>(</RepositoryCredentials>)?\')
+                                        if repository; then
+                                          file_content=$(echo $file_content | sed -r "s%<RepositoryCredentials.*/?>(</RepositoryCredentials>)?%$repositoryCredentials%g")
+                                        else
+                                          file_content=$(echo $file_content | sed -r "s%</ContainerHostPolicies>%$repositoryCredentials\\n</ContainerHostPolicies>%g")
+                                        fi
+                                        echo $file_content'''
+               }
+           }
+           sh "rm -f $APP_MANIFEST_PATH"
+           sh "echo '$FILE_CONTENT' > $APP_MANIFEST_PATH"
+        }
+    }
+    stage('Deploy to service fabric') {
+       steps {
+           script {
+                env.APP_TYPE_NAME = sh returnStdout: true, script: '''#!/bin/bash
+                                                                app_manifest="$APP_MANIFEST_PATH"
+                                                                application_version=$(grep -oP \'ApplicationTypeName="\\K[^"]*\' $app_manifest) 
+                                                                echo $application_version'''
+                env.APP_NAME = sh returnStdout: true, script: '''#!/bin/bash
+                                                                application_name=$(echo "$APP_TYPE_NAME" | sed -r 's/Type//g') 
+                                                                echo $application_name'''                        
+            }
+            azureServiceFabricPublish applicationName: 'fabric:/$APP_NAME', applicationType: '$APP_TYPE_NAME', azureCredentialsId: '', clientCert: "$JENKINS_HOME/cert.pem", clientKey: "$JENKINS_HOME/key_unencrypted.pem", configureType: 'fill', managementHost: 'moeda-cluster.brazilsouth.cloudapp.azure.com', manifestPath: '<%= applicationManifestPath %>', resourceGroup: '', serviceFabric: ''
+       }
+    }
+  }
+}

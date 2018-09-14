@@ -35,14 +35,6 @@ module.exports = generators.Base.extend({
 
             var done = this.async();
             var prompts = [
-
-                {
-                    name: 'serviceName',
-                    message: 'Name of the application service:',
-                    default: 'MyService',
-                    when: !this._isOptionSet('serviceName')
-                },
-
                 {
                     name: 'imageName',
                     message: 'Input the Image Name:',
@@ -90,6 +82,7 @@ module.exports = generators.Base.extend({
     initializing: function () {
         this.props = this.config.getAll();
         this.projName = this.props.projName;
+        this.basePackagePath = 'infra';
     }, // initializing()
     /**
     * Write the generator specific files
@@ -104,7 +97,7 @@ module.exports = generators.Base.extend({
     writing: {
         application: function() {
 
-            var appPackagePath = this.isAddNewService ? this.projName : path.join(this.projName, this.projName);
+            var appPackagePath = this.isAddNewService ? this.basePackagePath : path.join(this.basePackagePath, this.basePackagePath);
             var servicePkgName = this.props.serviceName + 'Pkg';
             var serviceTypeName = this.props.serviceName + 'Type';
             var serviceName = this.props.serviceName;
@@ -193,7 +186,7 @@ module.exports = generators.Base.extend({
             var servicePkg = this.props.serviceName + 'Pkg';
             var serviceTypeName = this.props.serviceName + 'Type';
             var appTypeName = this.projName + 'Type';
-            var pkgDir = this.isAddNewService == false ? path.join(this.projName, this.projName) : this.projName;
+            var pkgDir = this.isAddNewService == false ? path.join(this.basePackagePath, this.basePackagePath) : this.basePackagePath;
           
             var is_Windows = (process.platform == 'win32');
 
@@ -267,7 +260,20 @@ module.exports = generators.Base.extend({
                 );
             }
 
+        },
+
+        jenkins: function() {
+          this.fs.copyTpl(this.templatePath('Jenkinsfile'),
+                          this.destinationPath(path),
+                          {
+                              serviceTypeName: serviceTypeName,
+                              servicePkgName: servicePkg,
+                              imageName: this.props.imageName,
+                              commands: this.props.commands
+                          }
+                         );
         }
+        
 
     } // writing()
 
