@@ -1,7 +1,7 @@
 {
-  "name": "generator-azuresfcontainer",
+  "name": "generator-sfmicroservice",
   "version": "1.0.1",
-  "description": "Azure Service Fabric container app template generator",
+  "description": "Azure Service Fabric microservice stemplate generator",
   "homepage": "https://azure.microsoft.com/en-in/services/service-fabric/",
   "authors": {
     "name": "Microsoft,ServiceFabric",
@@ -17,11 +17,12 @@
     "yeoman-generator"
   ],
   "dependencies": {
-    "yeoman-generator": "^0.22.5",
-    "yosay": "^1.1.0",
+    "chalk": "^1.1.3",
+    "pwgen": "^0.1.6",
     "xml2js": "^0.4.6",
-    "chalk": "^1.1.3"
+    "yeoman-generator": "^0.22.5",
+    "yosay": "^1.1.0"
   },
-  "repository": "https://github.com/Azure/generator-azuresfcontainer",
+  "repository": "https://github.com/milovaz/generator-sfmicroservice",
   "license": "MIT"
 }

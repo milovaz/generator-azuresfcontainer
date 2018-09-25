@@ -21,7 +21,7 @@ var GuestGenerator = generators.Base.extend({
     var prompts = [{
       type: 'input', 
       name: 'projName',
-      message: 'Name your application',
+      message: 'Name your microservice',
       default: this.config.get('projName'),
       validate: function (input) {
         return input ? true : false;
@@ -31,6 +31,7 @@ var GuestGenerator = generators.Base.extend({
     this.prompt(prompts, function (props) {
       this.props = props;
       this.props.projName = this.props.projName.trim();
+      this.props.baseInfraPath = 'infra';
       this.config.set(props);
 
       done();
@@ -39,8 +40,11 @@ var GuestGenerator = generators.Base.extend({
 
   writing: function() {
     var isAddNewService = false;
-    this.composeWith('azuresfcontainer:guestcontainer', {
-            options: { isAddNewService: isAddNewService, serviceName: this.props.projName + 'Service' }
+    var includeScripts = false;
+    this.composeWith('sfmicroservice:guestcontainer', {
+            options: { isAddNewService: isAddNewService, 
+                       serviceName: this.props.projName + 'Service',
+                       includeScripts: includeScripts }
     });
   },
   
@@ -49,7 +53,7 @@ var GuestGenerator = generators.Base.extend({
     //this is for Add Service
     var nodeFs = require('fs');
     if (nodeFs.statSync(path.join(this.destinationRoot(), '.yo-rc.json')).isFile()) {
-        nodeFs.createReadStream(path.join(this.destinationRoot(), '.yo-rc.json')).pipe(nodeFs.createWriteStream(path.join(this.destinationRoot(), this.props.projName, '.yo-rc.json')));
+        nodeFs.createReadStream(path.join(this.destinationRoot(), '.yo-rc.json')).pipe(nodeFs.createWriteStream(path.join(this.destinationRoot(), this.props.baseInfraPath, '.yo-rc.json')));
     }
 
   }

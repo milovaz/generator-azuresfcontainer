@@ -17,6 +17,7 @@ module.exports = generators.Base.extend({
         this.option('instanceCount', { type: Number, required: false }); 
         this.option('isAddNewService', { type: Boolean, required: true });
         this.isAddNewService = this.options.isAddNewService;
+        this.includeScripts = this.options.includeScripts;
 
         this.generatorConfig = {};
 
@@ -35,6 +36,14 @@ module.exports = generators.Base.extend({
 
             var done = this.async();
             var prompts = [
+
+                {
+                    name: 'serviceName',
+                    message: 'Name of the application service:',
+                    default: 'MyService',
+                    when: !this._isOptionSet('serviceName')
+                },
+
                 {
                     name: 'imageName',
                     message: 'Input the Image Name:',
@@ -63,6 +72,7 @@ module.exports = generators.Base.extend({
 
             this.prompt(prompts, function(props) {
                 this.props = props;
+                this.props.serviceName = this.options.serviceName;
                 done();
             }.bind(this)
             );
@@ -82,7 +92,7 @@ module.exports = generators.Base.extend({
     initializing: function () {
         this.props = this.config.getAll();
         this.projName = this.props.projName;
-        this.basePackagePath = 'infra';
+        this.baseInfraPath = this.props.baseInfraPath;
     }, // initializing()
     /**
     * Write the generator specific files
@@ -97,7 +107,7 @@ module.exports = generators.Base.extend({
     writing: {
         application: function() {
 
-            var appPackagePath = this.isAddNewService ? this.basePackagePath : path.join(this.basePackagePath, this.basePackagePath);
+            var appPackagePath = path.join(this.baseInfraPath, this.projName);
             var servicePkgName = this.props.serviceName + 'Pkg';
             var serviceTypeName = this.props.serviceName + 'Type';
             var serviceName = this.props.serviceName;
@@ -186,7 +196,7 @@ module.exports = generators.Base.extend({
             var servicePkg = this.props.serviceName + 'Pkg';
             var serviceTypeName = this.props.serviceName + 'Type';
             var appTypeName = this.projName + 'Type';
-            var pkgDir = this.isAddNewService == false ? path.join(this.basePackagePath, this.basePackagePath) : this.basePackagePath;
+            var pkgDir = path.join(this.baseInfraPath, this.projName);
           
             var is_Windows = (process.platform == 'win32');
 
@@ -238,10 +248,10 @@ module.exports = generators.Base.extend({
             }
             this.fs.copyTpl(  this.templatePath('Service/Settings.xml'),
             this.destinationPath(path.join(pkgDir, servicePkg , '/config/Settings.xml')));
-            if (!this.isAddNewService) {
+            if (!this.isAddNewService && this.includeScripts) {
                 this.fs.copyTpl(
                     this.templatePath('deploy/install'+sdkScriptExtension),
-                    this.destinationPath(path.join(this.projName, 'install'+sdkScriptExtension)),
+                    this.destinationPath(path.join(this.baseInfraPath, 'install'+sdkScriptExtension)),
                     {
                         appPackage: this.projName,
                         appName: this.projName,
@@ -251,7 +261,7 @@ module.exports = generators.Base.extend({
 
                 this.fs.copyTpl(
                     this.templatePath('deploy/uninstall'+sdkScriptExtension),
-                    this.destinationPath(path.join(this.projName, 'uninstall'+sdkScriptExtension)),
+                    this.destinationPath(path.join(this.baseInfraPath, 'uninstall'+sdkScriptExtension)),
                     {
                         appPackage: this.projName,
                         appName: this.projName,
@@ -263,17 +273,24 @@ module.exports = generators.Base.extend({
         },
 
         jenkins: function() {
-          this.fs.copyTpl(this.templatePath('Jenkinsfile'),
-                          this.destinationPath(path),
-                          {
-                              serviceTypeName: serviceTypeName,
-                              servicePkgName: servicePkg,
-                              imageName: this.props.imageName,
-                              commands: this.props.commands
-                          }
-                         );
+            var appPackagePath = path.join(this.baseInfraPath, this.projName);
+            var applicationManifestPath = path.join(appPackagePath, '/ApplicationManifest.xml');
+            var servicePkg = this.props.serviceName + 'Pkg';
+            var pkgDir = path.join(this.baseInfraPath, this.projName);
+            var serviceManifestPath = path.join(pkgDir, servicePkg, '/ServiceManifest.xml');
+            /*this.fs.copyTpl(this.templatePath('Jenkinsfile'),
+                            this.destinationPath(path.join('.', '/Jenkinsfile')),
+                            {
+                                serviceManifestPath: serviceManifestPath,
+                                applicationManifestPath: applicationManifestPath
+                            }
+                           );
+            */
+            this.fs.copyTpl(this.templatePath('JenkinsfileCI'),
+                            this.destinationPath(path.join(this.baseInfraPath, '/JenkinsfileCI')), {});
+            this.fs.copyTpl(this.templatePath('JenkinsfileCD'),
+                            this.destinationPath(path.join(this.baseInfraPath, '/JenkinsfileCD')), {});
         }
-        
 
     } // writing()
 

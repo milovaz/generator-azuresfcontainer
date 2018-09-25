@@ -1,0 +1,39 @@
+pipeline {
+  agent any
+  tools {nodejs "node"}
+  stages {
+          
+      stage('Git') {
+        steps {
+            script {
+              checkoutRepository()
+            }
+        }
+      }
+          
+      stage('Build') {
+        steps {
+          sh 'npm install'
+        }
+      }
+        
+      stage('Test') {
+        steps {
+          sh 'npm test'
+        }
+      }      
+      
+      stage('Deploy') {
+        steps {
+          informGitDeployment(env.REPO_OWNER, env.REPO_NAME, env.DEPLOYMENT_ID)
+        }  
+      }
+      stage('Slack Message') {
+        steps {
+          slackSend channel: '#prj_moeda',
+              color: 'good',
+              message: "*${currentBuild.currentResult}:* Job ${env.JOB_NAME} build ${env.BUILD_NUMBER}\n More info at: ${env.BUILD_URL}"
+        }
+      }
+  }
+}
