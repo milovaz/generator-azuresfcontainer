@@ -6,7 +6,7 @@
       <ServiceManifestRef ServiceManifestName="<%= servicePkgName %>" ServiceManifestVersion="1.0.0" />
         <Policies>
             <ContainerHostPolicies CodePackageRef="Code">
-                <PortBinding ContainerPort="<%= portMapContainer %>" EndpointRef="<%= serviceEndPointName %>"/>
+                <PortBinding EndpointRef="<%= serviceEndPointName %>"/>
             </ContainerHostPolicies>
         </Policies>
    </ServiceManifestImport>

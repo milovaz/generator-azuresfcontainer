@@ -1,39 +1,60 @@
 pipeline {
-  agent any
-  tools {nodejs "node"}
-  stages {
-          
-      stage('Git') {
-        steps {
-            script {
-              checkoutRepository()
-            }
+    agent any
+    tools {nodejs "node"}
+    stages {
+            
+        stage('Git') {
+          steps {
+              script {
+                checkoutRepository()
+              }
+          }
         }
-      }
-          
-      stage('Build') {
-        steps {
-          sh 'npm install'
-        }
-      }
         
-      stage('Test') {
-        steps {
-          sh 'npm test'
+        stage('Update artifacts') {
+          steps {
+            azureServiceFabricUpdateArtifacts applicationManifestPath: '<%= applicationManifestPath %>', serviceManifestPath: '<%= serviceManifestPath %>', serviceTargetVersion: "$BUILD_NUMBER", applicationTargetVersion: "$BUILD_NUMBER", credentials: 'acr-credentials' 
+          }  
         }
-      }      
-      
-      stage('Deploy') {
-        steps {
-          informGitDeployment(env.REPO_OWNER, env.REPO_NAME, env.DEPLOYMENT_ID)
-        }  
-      }
-      stage('Slack Message') {
-        steps {
-          slackSend channel: '#prj_moeda',
-              color: 'good',
-              message: "*${currentBuild.currentResult}:* Job ${env.JOB_NAME} build ${env.BUILD_NUMBER}\n More info at: ${env.BUILD_URL}"
+        
+        stage('Build') {
+          steps{
+            script {
+                registry = sh (returnStdout: true, script: '''#!/bin/bash
+                image_name=$(grep -oP \'<ImageName>\\K[^<]*\' <%= serviceManifestPath %>)
+                echo $image_name''').trim()
+            }
+            script {
+                dockerImage = docker.build registry
+            }
+          }
         }
-      }
-  }
+        
+        stage('Deploy Image') {
+          steps{
+             script {
+                docker.withRegistry('https://moeda3.azurecr.io', 'acr-credentials') {
+                dockerImage.push()
+              }
+            }
+          }
+        }
+        
+        stage('Deploy to service fabric') {
+           steps {
+                azureServiceFabricPublish applicationName: 'fabric:/<%= appName %>', applicationType: "<%= appTypeName %>", azureCredentialsId: '', clientCert: "$JENKINS_HOME/cert.pem", clientKey: "$JENKINS_HOME/key_unencrypted.pem", configureType: 'fill', managementHost: 'moeda-cluster.brazilsouth.cloudapp.azure.com', manifestPath: '<%= applicationManifestPath %>', resourceGroup: '', serviceFabric: '', environmentType: "$GIT_BRANCH"
+           }
+        }
+        
+        stage('Inform Deploy') {
+          steps {
+            informGitDeployment(env.REPO_OWNER, env.REPO_NAME, env.DEPLOYMENT_ID)
+          }  
+        }
+    }
+    post {
+        always {
+            sendFeedbackToSlack '@thiagomilo'      
+        }
+    }
 }

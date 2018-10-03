@@ -65,7 +65,7 @@ module.exports = generators.Base.extend({
 
                 {
                     name: 'portMap',
-                    message: 'Enter the container host mapping in the following format, container_port:host_port or press enter if not needed:',
+                    message: 'Enter the container port mapping:',
                     when: !this._isOptionSet('portMap')
                 }
             ];
@@ -113,19 +113,14 @@ module.exports = generators.Base.extend({
             var serviceName = this.props.serviceName;
             var appTypeName = this.projName + 'Type';
             var instanceCount = this.props.instanceCount;
-            if (this.props.portMap != ""){
-                var portMap = this.props.portMap.split(":");
-                this._assert(portMap.length == 2, "Entered format is incorrect")
-                var portMapContainer = portMap[0];
-                var portMapHost = portMap[1];
+            if (this.props.portMap != "") {
+                var portMapContainer = this.props.portMap;
                 this._assert(!isNaN(portMapContainer), "The container port is not a number")
-                this._assert(!isNaN(portMapHost), "The host port is not a number")
             }
             else {
                 var portMapContainer = "";
-                var portMapHost = "";
             }
-            var serviceEndPointName = this.props.serviceName + 'Endpoint';
+            var serviceEndPointName = this.projName + 'Endpoint';
 
             if (this.isAddNewService) {
                 var fs = require('fs');
@@ -137,11 +132,11 @@ module.exports = generators.Base.extend({
                         if (err) {
                             return console.log(err);
                         }
-                        if (portMapHost != "" && portMapContainer != ""){
+                        if (portMapContainer != ""){
                             result['ApplicationManifest']['ServiceManifestImport'][result['ApplicationManifest']['ServiceManifestImport'].length] =
                             {
                                 "ServiceManifestRef":[{"$":{"ServiceManifestName":servicePkgName, "ServiceManifestVersion":"1.0.0"}}],
-                                "Policies":[{"ContainerHostPolicies":[{"$":{"CodePackageRef":"Code"},"PortBinding":[{"$":{"ContainerPort": portMapContainer, "EndpointRef": serviceEndPointName}}]}]}]
+                                "Policies":[{"ContainerHostPolicies":[{"$":{"CodePackageRef":"Code"},"PortBinding":[{"$":{"EndpointRef": serviceEndPointName}}]}]}]
                             }
                         result['ApplicationManifest']['DefaultServices'][0]['Service'][result['ApplicationManifest']['DefaultServices'][0]['Service'].length] =
                             {"$":{"Name":serviceName},"StatelessService":[{"$":{"ServiceTypeName":serviceTypeName,"InstanceCount":instanceCount},"SingletonPartition":[""]}]};
@@ -163,7 +158,7 @@ module.exports = generators.Base.extend({
                 });
 
             } else { 
-                if (portMapHost != "" && portMapContainer != "" ){
+                if (portMapContainer != "" ){
                     this.fs.copyTpl(this.templatePath('ApplicationManifestWithPorts.xml'),
                     this.destinationPath(path.join(appPackagePath, '/ApplicationManifest.xml')),
                     {
@@ -213,16 +208,12 @@ module.exports = generators.Base.extend({
             var portMapContainer = "";
             var portMapHost = "";
             if (this.props.portMap != ""){
-                var portMap = this.props.portMap.split(":");
-                this._assert(portMap.length == 2, "Entered format is incorrect")
-                var portMapContainer = portMap[0];
-                var portMapHost = portMap[1];
-                this._assert(!isNaN(portMapContainer), "The container port is not a number")
+                var portMapHost = this.props.portMap;
                 this._assert(!isNaN(portMapHost), "The host port is not a number")
             }
-            var serviceEndPointName = this.props.serviceName + 'Endpoint';
+            var serviceEndPointName = this.projName + 'Endpoint';
 
-            if (portMapHost != "" && portMapContainer != "" ){
+            if (portMapHost != ""){
                 this.fs.copyTpl(  this.templatePath('Service/ServiceManifestWithPorts.xml'),
                 this.destinationPath(path.join(pkgDir, servicePkg, '/ServiceManifest.xml')),
                 {
@@ -276,20 +267,20 @@ module.exports = generators.Base.extend({
             var appPackagePath = path.join(this.baseInfraPath, this.projName);
             var applicationManifestPath = path.join(appPackagePath, '/ApplicationManifest.xml');
             var servicePkg = this.props.serviceName + 'Pkg';
+            var appTypeName = this.projName + 'Type';
             var pkgDir = path.join(this.baseInfraPath, this.projName);
             var serviceManifestPath = path.join(pkgDir, servicePkg, '/ServiceManifest.xml');
-            /*this.fs.copyTpl(this.templatePath('Jenkinsfile'),
-                            this.destinationPath(path.join('.', '/Jenkinsfile')),
-                            {
-                                serviceManifestPath: serviceManifestPath,
-                                applicationManifestPath: applicationManifestPath
-                            }
-                           );
-            */
             this.fs.copyTpl(this.templatePath('JenkinsfileCI'),
                             this.destinationPath(path.join(this.baseInfraPath, '/JenkinsfileCI')), {});
             this.fs.copyTpl(this.templatePath('JenkinsfileCD'),
-                            this.destinationPath(path.join(this.baseInfraPath, '/JenkinsfileCD')), {});
+                            this.destinationPath(path.join(this.baseInfraPath, '/JenkinsfileCD')), 
+                            {
+                                appName: this.projName,
+                                appTypeName: appTypeName,
+                                servicePkgName: servicePkg,
+                                serviceManifestPath: serviceManifestPath,
+                                applicationManifestPath: applicationManifestPath
+                            });
         }
 
     } // writing()
