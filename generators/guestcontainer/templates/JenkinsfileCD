@@ -13,7 +13,7 @@ pipeline {
         
         stage('Update artifacts') {
           steps {
-            azureServiceFabricUpdateArtifacts applicationManifestPath: '<%= applicationManifestPath %>', serviceManifestPath: '<%= serviceManifestPath %>', serviceTargetVersion: "$BUILD_NUMBER", applicationTargetVersion: "$BUILD_NUMBER", credentials: 'acr-credentials' 
+            azureServiceFabricUpdateArtifacts applicationManifestPath: '<%= applicationManifestPath %>', serviceManifestPath: '<%= serviceManifestPath %>', serviceTargetVersion: "$BUILD_NUMBER", applicationTargetVersion: "$BUILD_NUMBER", credentials: 'acr-credentials', repositoryName: "$REPO_NAME", environmentType: "$GIT_BRANCH", passwordEncrypted: "false" 
           }  
         }
         
@@ -42,7 +42,7 @@ pipeline {
         
         stage('Deploy to service fabric') {
            steps {
-                azureServiceFabricPublish applicationName: 'fabric:/<%= appName %>', applicationType: "<%= appTypeName %>", azureCredentialsId: '', clientCert: "$JENKINS_HOME/cert.pem", clientKey: "$JENKINS_HOME/key_unencrypted.pem", configureType: 'fill', managementHost: 'moeda-cluster.brazilsouth.cloudapp.azure.com', manifestPath: '<%= applicationManifestPath %>', resourceGroup: '', serviceFabric: '', environmentType: "$GIT_BRANCH"
+                azureServiceFabricPublish applicationName: 'fabric:/<%= appName %>', applicationType: "<%= appTypeName %>", azureCredentialsId: '', clientCert: "$JENKINS_HOME/cert.pem", clientKey: "$JENKINS_HOME/key_unencrypted.pem", configureType: 'fill', managementHost: 'moeda-cluster.brazilsouth.cloudapp.azure.com', manifestPath: '<%= applicationManifestPath %>', resourceGroup: '', serviceFabric: '', repositoryName: "$REPO_NAME", environmentType: "$GIT_BRANCH"
            }
         }
         
